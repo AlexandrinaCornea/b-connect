@@ -1,0 +1,46 @@
+{
+  "name": "b-connect",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@apollo/client": "^3.14.1",
+    "@graphql-tools/schema": "^10.0.33",
+    "@neondatabase/serverless": "^1.1.0",
+    "@nuxt/icon": "^2.2.3",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "@pinia/nuxt": "^0.11.3",
+    "@sidebase/nuxt-auth": "^1.2.0",
+    "@vee-validate/zod": "^4.15.1",
+    "@vue/apollo-composable": "^4.2.2",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "drizzle-orm": "^0.45.2",
+    "graphql": "^16.14.1",
+    "graphql-yoga": "^5.21.2",
+    "next-auth": "^4.21.1",
+    "nuxt": "^4.4.7",
+    "pinia": "^3.0.4",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.35",
+    "vue-router": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^25.9.2",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
