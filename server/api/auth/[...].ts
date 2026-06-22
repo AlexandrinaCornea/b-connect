@@ -26,7 +26,7 @@ export default NuxtAuthHandler({
 
         const validPassword = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
 
         if (!validPassword) return null;
