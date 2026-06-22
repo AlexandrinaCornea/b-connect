@@ -6,30 +6,39 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export const bookStatusEnum = pgEnum("book_status", [
-  "available", // disponibilă pentru împrumut
-  "borrowed", // în prezent împrumutată
-]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
+
+export const bookStatusEnum = pgEnum("book_status", ["available", "borrowed"]);
 
 export const loanStatusEnum = pgEnum("loan_status", [
-  "pending", // cerere trimisă, în așteptare
-  "active", // cerere acceptată, carte împrumutată
-  "returned", // carte returnată
-  "rejected", // cerere respinsă de proprietar
-  "cancelled", // cerere anulată de solicitant
+  "pending",
+  "active",
+  "returned",
+  "rejected",
+  "cancelled",
 ]);
 
 export const notificationTypeEnum = pgEnum("notification_type", [
-  "loan_request", // ai primit o cerere de împrumut
-  "loan_accepted", // cererea ta a fost acceptată
-  "loan_rejected", // cererea ta a fost respinsă
-  "loan_returned", // cartea a fost marcată returnată
-  "due_date_reminder", // termenul de returnare se apropie
-  "new_review", // ai primit un review
+  "loan_request",
+  "loan_accepted",
+  "loan_rejected",
+  "loan_returned",
+  "due_date_reminder",
+  "new_review",
+  "book_available",
+  "friend_request",
+  "friend_accepted",
+]);
+
+export const friendshipStatusEnum = pgEnum("friendship_status", [
+  "pending",
+  "accepted",
+  "rejected",
 ]);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -40,13 +49,13 @@ export const users = pgTable("users", {
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(), // hash bcrypt
+  password: text("password").notNull(),
   city: text("city"),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
+  role: userRoleEnum("role").default("user").notNull(),
   ratingSum: integer("rating_sum").default(0).notNull(),
   ratingCount: integer("rating_count").default(0).notNull(),
-  // ratingAvg calculat la query: ratingSum / ratingCount
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -86,11 +95,11 @@ export const loanRequests = pgTable("loan_requests", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   status: loanStatusEnum("status").default("pending").notNull(),
-  message: text("message"), // mesaj opțional de la solicitant
-  dueDate: timestamp("due_date"), // termen de returnare agreat
+  message: text("message"),
+  dueDate: timestamp("due_date"),
   requestedAt: timestamp("requested_at").defaultNow().notNull(),
-  respondedAt: timestamp("responded_at"), // când a acceptat/respins proprietarul
-  returnedAt: timestamp("returned_at"), // când a fost marcată returnată
+  respondedAt: timestamp("responded_at"),
+  returnedAt: timestamp("returned_at"),
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
@@ -125,8 +134,77 @@ export const notifications = pgTable("notifications", {
   type: notificationTypeEnum("type").notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
-  relatedId: text("related_id"), // id loan/book/review asociat
+  relatedId: text("related_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+export const favorites = pgTable(
+  "favorites",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    bookId: text("book_id")
+      .notNull()
+      .references(() => books.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.userId, t.bookId)],
+);
+
+// ─── Conversations ────────────────────────────────────────────────────────────
+
+export const conversations = pgTable("conversations", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  user1Id: text("user1_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  user2Id: text("user2_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+export const messages = pgTable("messages", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  senderId: text("sender_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Friendships ──────────────────────────────────────────────────────────────
+
+export const friendships = pgTable("friendships", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  requesterId: text("requester_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  addresseeId: text("addressee_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: friendshipStatusEnum("status").default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // ─── TypeScript types ─────────────────────────────────────────────────────────
@@ -145,3 +223,15 @@ export type NewReview = typeof reviews.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+export type Favorite = typeof favorites.$inferSelect;
+export type NewFavorite = typeof favorites.$inferInsert;
+
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
+
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
+
+export type Friendship = typeof friendships.$inferSelect;
+export type NewFriendship = typeof friendships.$inferInsert;

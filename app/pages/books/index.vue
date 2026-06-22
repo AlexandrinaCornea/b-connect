@@ -1,8 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: "auth",
-});
-
 const search = ref("");
 const genre = ref("");
 const status = ref("");

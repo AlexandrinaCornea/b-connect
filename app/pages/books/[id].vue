@@ -1,8 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: "auth",
-});
-
 const route = useRoute();
 const { data: session } = useAuth();
 const id = route.params.id as string;
@@ -17,7 +13,34 @@ const isOwner = computed(
   () => (session.value?.user as any)?.id === book.value?.ownerId,
 );
 
+const isFavorite = ref(false);
+const favLoading = ref(false);
+
+if (session.value) {
+  const { data: favCheck } = await useFetch("/api/favorites/check", {
+    query: { bookId: id },
+  });
+  isFavorite.value = (favCheck.value as any)?.isFavorite ?? false;
+}
+
+async function toggleFavorite() {
+  if (!session.value) return navigateTo("/auth/login");
+  favLoading.value = true;
+  try {
+    if (isFavorite.value) {
+      await $fetch(`/api/favorites/${id}`, { method: "DELETE" });
+      isFavorite.value = false;
+    } else {
+      await $fetch("/api/favorites", { method: "POST", body: { bookId: id } });
+      isFavorite.value = true;
+    }
+  } finally {
+    favLoading.value = false;
+  }
+}
+
 async function requestLoan() {
+  if (!session.value) return navigateTo("/auth/login");
   requesting.value = true;
   requestError.value = "";
   try {
@@ -76,16 +99,41 @@ async function requestLoan() {
         <div>
           <div class="flex items-start justify-between gap-4 mb-2">
             <h1 class="text-2xl font-bold text-gray-900">{{ book.title }}</h1>
-            <span
-              class="shrink-0 text-sm font-medium px-3 py-1 rounded-full"
-              :class="
-                book.status === 'available'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-orange-100 text-orange-700'
-              "
-            >
-              {{ book.status === "available" ? "Disponibilă" : "Împrumutată" }}
-            </span>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                @click="toggleFavorite"
+                :disabled="favLoading"
+                class="p-2 rounded-lg border transition"
+                :class="
+                  isFavorite
+                    ? 'border-red-200 bg-red-50 text-red-500'
+                    : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400'
+                "
+                :title="
+                  isFavorite ? 'Elimină din favorite' : 'Adaugă la favorite'
+                "
+              >
+                <Icon
+                  :name="
+                    isFavorite ? 'heroicons:heart-solid' : 'heroicons:heart'
+                  "
+                  class="w-5 h-5"
+                />
+              </button>
+
+              <span
+                class="text-sm font-medium px-3 py-1 rounded-full"
+                :class="
+                  book.status === 'available'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700'
+                "
+              >
+                {{
+                  book.status === "available" ? "Disponibilă" : "Împrumutată"
+                }}
+              </span>
+            </div>
           </div>
           <p class="text-gray-600">{{ book.author }}</p>
           <span
@@ -103,7 +151,10 @@ async function requestLoan() {
           {{ book.description }}
         </p>
 
-        <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+        <NuxtLink
+          :to="`/users/${book.owner?.id}`"
+          class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition"
+        >
           <div
             class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold"
           >
@@ -117,7 +168,11 @@ async function requestLoan() {
               {{ book.owner.city }}
             </p>
           </div>
-        </div>
+          <Icon
+            name="heroicons:chevron-right"
+            class="w-4 h-4 text-gray-400 ml-auto"
+          />
+        </NuxtLink>
 
         <div v-if="!isOwner">
           <div
@@ -134,7 +189,18 @@ async function requestLoan() {
             >
               {{ requestError }}
             </div>
+
+            <div v-if="!session" class="space-y-2">
+              <NuxtLink
+                to="/auth/login"
+                class="block w-full py-3 px-4 text-center font-medium rounded-xl transition text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Autentifică-te pentru a solicita împrumut
+              </NuxtLink>
+            </div>
+
             <button
+              v-else
               :disabled="book.status !== 'available' || requesting"
               @click="requestLoan"
               class="w-full py-3 px-4 font-medium rounded-xl transition text-sm"

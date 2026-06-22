@@ -2,17 +2,59 @@
 const { data, signOut } = useAuth();
 const route = useRoute();
 
-const navLinks = [
-  { to: "/books", label: "Cărți", icon: "heroicons:book-open" },
-  {
-    to: "/loans",
-    label: "Împrumuturi",
-    icon: "heroicons:arrow-path-rounded-square",
-  },
-  { to: "/notifications", label: "Notificări", icon: "heroicons:bell" },
-];
+const isAdmin = computed(() => (data.value?.user as any)?.role === "admin");
+
+const navLinks = computed(() => {
+  const links = [
+    { to: "/books", label: "Cărți", icon: "heroicons:book-open" },
+    {
+      to: "/loans",
+      label: "Împrumuturi",
+      icon: "heroicons:arrow-path-rounded-square",
+    },
+    {
+      to: "/messages",
+      label: "Mesaje",
+      icon: "heroicons:chat-bubble-left-right",
+    },
+  ];
+  if (isAdmin.value) {
+    links.push({
+      to: "/admin",
+      label: "Admin",
+      icon: "heroicons:shield-check",
+    });
+  }
+  return links;
+});
+
+const mobileLinks = computed(() => {
+  const links = [
+    { to: "/books", label: "Cărți", icon: "heroicons:book-open" },
+    {
+      to: "/loans",
+      label: "Împrumuturi",
+      icon: "heroicons:arrow-path-rounded-square",
+    },
+    {
+      to: "/messages",
+      label: "Mesaje",
+      icon: "heroicons:chat-bubble-left-right",
+    },
+    { to: "/profile", label: "Profil", icon: "heroicons:user-circle" },
+  ];
+  return links;
+});
 
 const isActive = (path: string) => route.path.startsWith(path);
+
+const { data: notifications } = data.value
+  ? await useFetch("/api/notifications")
+  : { data: ref(null) };
+
+const unreadCount = computed(
+  () => (notifications.value as any[])?.filter((n: any) => !n.read).length ?? 0,
+);
 
 async function handleSignOut() {
   await signOut({ callbackUrl: "/auth/login" });
@@ -34,53 +76,95 @@ async function handleSignOut() {
         </NuxtLink>
 
         <div class="hidden md:flex items-center gap-1">
-          <NuxtLink
-            v-for="link in navLinks"
-            :key="link.to"
-            :to="link.to"
-            class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
-            :class="
-              isActive(link.to)
-                ? 'bg-indigo-50 text-indigo-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            "
-          >
-            <Icon :name="link.icon" class="w-4 h-4" />
-            {{ link.label }}
-          </NuxtLink>
+          <template v-if="data">
+            <NuxtLink
+              v-for="link in navLinks"
+              :key="link.to"
+              :to="link.to"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
+              :class="
+                isActive(link.to)
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              "
+            >
+              <Icon :name="link.icon" class="w-4 h-4" />
+              {{ link.label }}
+            </NuxtLink>
+          </template>
+          <template v-else>
+            <NuxtLink
+              to="/books"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
+              :class="
+                isActive('/books')
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              "
+            >
+              <Icon name="heroicons:book-open" class="w-4 h-4" />
+              Cărți
+            </NuxtLink>
+          </template>
         </div>
 
-        <div class="flex items-center gap-3">
-          <NuxtLink
-            to="/profile"
-            class="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition"
-          >
-            <div
-              class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs"
+        <div class="flex items-center gap-2">
+          <template v-if="data">
+            <NuxtLink
+              to="/notifications"
+              class="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+              title="Notificări"
             >
-              {{ data?.user?.name?.charAt(0).toUpperCase() }}
-            </div>
-            <span class="hidden md:block font-medium">{{
-              data?.user?.name
-            }}</span>
-          </NuxtLink>
+              <Icon name="heroicons:bell" class="w-5 h-5" />
+              <span
+                v-if="unreadCount > 0"
+                class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"
+              />
+            </NuxtLink>
 
-          <button
-            @click="handleSignOut"
-            class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
-            title="Deconectare"
-          >
-            <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5" />
-          </button>
+            <NuxtLink
+              to="/profile"
+              class="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition"
+            >
+              <div
+                class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs"
+              >
+                {{ data?.user?.name?.charAt(0).toUpperCase() }}
+              </div>
+              <span class="hidden md:block font-medium">{{
+                data?.user?.name
+              }}</span>
+            </NuxtLink>
+
+            <button
+              @click="handleSignOut"
+              class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+              title="Deconectare"
+            >
+              <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5" />
+            </button>
+          </template>
+          <template v-else>
+            <NuxtLink
+              to="/auth/login"
+              class="px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+              >Autentifică-te</NuxtLink
+            >
+            <NuxtLink
+              to="/auth/register"
+              class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition"
+              >Înregistrare</NuxtLink
+            >
+          </template>
         </div>
       </div>
 
-      <div class="md:hidden border-t border-gray-100 flex">
+      <div v-if="data" class="md:hidden border-t border-gray-100 flex">
         <NuxtLink
-          v-for="link in navLinks"
+          v-for="link in mobileLinks"
           :key="link.to"
           :to="link.to"
-          class="flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium transition"
+          class="flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium transition relative"
           :class="
             isActive(link.to)
               ? 'text-indigo-600'

@@ -7,6 +7,7 @@ export default defineEventHandler(async (event) => {
   const search = query.search as string | undefined;
   const genre = query.genre as string | undefined;
   const status = query.status as "available" | "borrowed" | undefined;
+  const ownerId = query.ownerId as string | undefined;
   const sortBy = (query.sortBy as string) ?? "createdAt";
   const order = (query.order as string) ?? "desc";
 
@@ -28,6 +29,10 @@ export default defineEventHandler(async (event) => {
 
   if (status) {
     filters.push(eq(books.status, status));
+  }
+
+  if (ownerId) {
+    filters.push(eq(books.ownerId, ownerId));
   }
 
   const sortColumn = sortBy === "title" ? books.title : books.createdAt;

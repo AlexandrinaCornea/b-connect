@@ -36,6 +36,7 @@ export default NuxtAuthHandler({
           name: user.name,
           email: user.email,
           city: user.city,
+          role: user.role,
         };
       },
     }),
@@ -45,6 +46,7 @@ export default NuxtAuthHandler({
       if (user) {
         token.id = user.id;
         token.city = (user as any).city;
+        token.role = (user as any).role;
       }
       return token;
     },
@@ -52,6 +54,7 @@ export default NuxtAuthHandler({
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).city = token.city;
+        (session.user as any).role = token.role;
       }
       return session;
     },
