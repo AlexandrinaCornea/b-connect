@@ -6,7 +6,8 @@ import { getServerSession } from "#auth";
 const createLoanSchema = z.object({
   bookId: z.string().min(1),
   message: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  dueDate: z.string().optional(),
 });
 
 export default defineEventHandler(async (event) => {
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const { bookId, message, dueDate } = result.data;
+  const { bookId, message, startDate, dueDate } = result.data;
   const borrowerId = (session.user as any).id;
 
   const [book] = await db
@@ -53,6 +54,7 @@ export default defineEventHandler(async (event) => {
       borrowerId,
       ownerId: book.ownerId,
       message: message ?? null,
+      startDate: startDate ? new Date(startDate) : null,
       dueDate: dueDate ? new Date(dueDate) : null,
     })
     .returning();

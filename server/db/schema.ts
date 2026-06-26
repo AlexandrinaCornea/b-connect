@@ -96,6 +96,7 @@ export const loanRequests = pgTable("loan_requests", {
     .references(() => users.id, { onDelete: "cascade" }),
   status: loanStatusEnum("status").default("pending").notNull(),
   message: text("message"),
+  startDate: timestamp("start_date"),
   dueDate: timestamp("due_date"),
   requestedAt: timestamp("requested_at").defaultNow().notNull(),
   respondedAt: timestamp("responded_at"),

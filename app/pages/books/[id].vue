@@ -39,14 +39,31 @@ async function toggleFavorite() {
   }
 }
 
+const showLoanForm = ref(false);
+const loanStartDate = ref("");
+const loanDueDate = ref("");
+const loanMessage = ref("");
+
+// Data minimă = azi
+const today = new Date().toISOString().split("T")[0];
+
 async function requestLoan() {
   if (!session.value) return navigateTo("/auth/login");
+  if (!loanStartDate.value || !loanDueDate.value) {
+    requestError.value = "Completează datele de început și returnare.";
+    return;
+  }
   requesting.value = true;
   requestError.value = "";
   try {
     await $fetch("/api/loans", {
       method: "POST",
-      body: { bookId: id },
+      body: {
+        bookId: id,
+        startDate: loanStartDate.value,
+        dueDate: loanDueDate.value,
+        message: loanMessage.value || undefined,
+      },
     });
     requestSuccess.value = true;
   } catch (err: any) {
@@ -199,23 +216,73 @@ async function requestLoan() {
               </NuxtLink>
             </div>
 
-            <button
-              v-else
-              :disabled="book.status !== 'available' || requesting"
-              @click="requestLoan"
-              class="w-full py-3 px-4 font-medium rounded-xl transition text-sm"
-              :class="
-                book.status === 'available'
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              "
-            >
-              <span v-if="requesting">Se trimite cererea...</span>
-              <span v-else-if="book.status !== 'available'"
-                >Carte indisponibilă</span
+            <div v-else-if="book.status !== 'available'" class="w-full py-3 px-4 font-medium rounded-xl text-sm text-center bg-gray-100 text-gray-400 cursor-not-allowed">
+              Carte indisponibilă
+            </div>
+
+            <div v-else>
+              <!-- Buton care deschide formularul -->
+              <button
+                v-if="!showLoanForm"
+                @click="showLoanForm = true"
+                class="w-full py-3 px-4 font-medium rounded-xl transition text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-              <span v-else>Solicită împrumut</span>
-            </button>
+                Solicită împrumut
+              </button>
+
+              <!-- Formular cu date -->
+              <div v-else class="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <p class="text-sm font-medium text-gray-700">Detalii împrumut</p>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-gray-500 mb-1 block">Data început</label>
+                    <input
+                      v-model="loanStartDate"
+                      type="date"
+                      :min="today"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-500 mb-1 block">Data returnare</label>
+                    <input
+                      v-model="loanDueDate"
+                      type="date"
+                      :min="loanStartDate || today"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-xs text-gray-500 mb-1 block">Mesaj pentru proprietar (opțional)</label>
+                  <textarea
+                    v-model="loanMessage"
+                    rows="2"
+                    placeholder="Ex: Pot ridica cartea marți..."
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none"
+                  />
+                </div>
+
+                <div class="flex gap-2">
+                  <button
+                    @click="showLoanForm = false"
+                    class="flex-1 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 transition"
+                  >
+                    Anulează
+                  </button>
+                  <button
+                    @click="requestLoan"
+                    :disabled="requesting || !loanStartDate || !loanDueDate"
+                    class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition"
+                  >
+                    <span v-if="requesting">Se trimite...</span>
+                    <span v-else>Trimite cererea</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

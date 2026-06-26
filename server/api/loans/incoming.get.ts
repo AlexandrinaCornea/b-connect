@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
       id: loanRequests.id,
       status: loanRequests.status,
       message: loanRequests.message,
+      startDate: loanRequests.startDate,
       dueDate: loanRequests.dueDate,
       requestedAt: loanRequests.requestedAt,
       book: {
