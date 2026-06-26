@@ -1,114 +1,134 @@
 <script setup lang="ts">
-definePageMeta({ middleware: "auth" });
+definePageMeta({ middleware: 'auth' })
 
-const route = useRoute();
-const { data: session } = useAuth();
-const convId = route.params.id as string;
+const route = useRoute()
+const { data: session } = useAuth()
+const convId = route.params.id as string
 
-const { data: msgs, refresh } = await useFetch(
-  `/api/conversations/${convId}/messages`,
-);
-const { data: convs } = await useFetch("/api/conversations");
+const msgs = ref<any[]>([])
+const convs = ref<any[]>([])
+const loading = ref(true)
 
-const conv = computed(() =>
-  (convs.value as any[])?.find((c: any) => c.id === convId),
-);
-const me = computed(() => (session.value?.user as any)?.id);
+const conv = computed(() => convs.value.find((c: any) => c.id === convId))
+const me = computed(() => (session.value?.user as any)?.id)
 const other = computed(() => {
-  if (!conv.value) return null;
-  return conv.value.user1.id === me.value ? conv.value.user2 : conv.value.user1;
-});
+  if (!conv.value) return null
+  return conv.value.user1.id === me.value ? conv.value.user2 : conv.value.user1
+})
 
-const newMessage = ref("");
-const sending = ref(false);
-const messagesEnd = ref<HTMLElement>();
+const newMessage = ref('')
+const sending = ref(false)
+const messagesEnd = ref<HTMLElement>()
+
+async function fetchMessages() {
+  msgs.value = await $fetch<any[]>(`/api/conversations/${convId}/messages`)
+}
+
+onMounted(async () => {
+  try {
+    ;[msgs.value, convs.value] = await Promise.all([
+      $fetch<any[]>(`/api/conversations/${convId}/messages`),
+      $fetch<any[]>('/api/conversations'),
+    ])
+  } finally {
+    loading.value = false
+  }
+
+  await nextTick()
+  messagesEnd.value?.scrollIntoView()
+
+  const timer = setInterval(fetchMessages, 3_000)
+  onUnmounted(() => clearInterval(timer))
+})
+
+watch(msgs, async () => {
+  await nextTick()
+  messagesEnd.value?.scrollIntoView({ behavior: 'smooth' })
+})
 
 async function send() {
-  if (!newMessage.value.trim() || sending.value) return;
-  sending.value = true;
+  if (!newMessage.value.trim() || sending.value) return
+  sending.value = true
+  const content = newMessage.value
+  newMessage.value = ''
   try {
-    await $fetch(`/api/conversations/${convId}/messages`, {
-      method: "POST",
-      body: { content: newMessage.value },
-    });
-    newMessage.value = "";
-    await refresh();
-    await nextTick();
-    messagesEnd.value?.scrollIntoView({ behavior: "smooth" });
+    const sent = await $fetch<any>(`/api/conversations/${convId}/messages`, {
+      method: 'POST',
+      body: { content },
+    })
+    msgs.value = [
+      ...msgs.value,
+      { ...sent, sender: { id: me.value, name: session.value?.user?.name, avatarUrl: null } },
+    ]
+    fetchMessages()
   } finally {
-    sending.value = false;
+    sending.value = false
   }
 }
 
 function formatTime(dt: string) {
-  return new Date(dt).toLocaleTimeString("ro-RO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(dt).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
 }
 
-onMounted(async () => {
-  await nextTick();
-  messagesEnd.value?.scrollIntoView();
-});
+const lastReadSentIndex = computed(() => {
+  for (let i = msgs.value.length - 1; i >= 0; i--) {
+    if (msgs.value[i].senderId === me.value && msgs.value[i].read && msgs.value[i].readAt) return i
+  }
+  return -1
+})
 </script>
 
 <template>
   <div class="max-w-2xl mx-auto flex flex-col h-[calc(100vh-12rem)]">
     <div class="flex items-center gap-3 mb-4">
-      <NuxtLink
-        to="/messages"
-        class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
-      >
+      <NuxtLink to="/messages" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition">
         <Icon name="heroicons:arrow-left" class="w-5 h-5" />
       </NuxtLink>
       <div v-if="other" class="flex items-center gap-3">
-        <div
-          class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm"
-        >
+        <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">
           {{ other.name?.charAt(0).toUpperCase() }}
         </div>
-        <div>
-          <NuxtLink
-            :to="`/users/${other.id}`"
-            class="font-semibold text-gray-900 hover:underline text-sm"
-          >
-            {{ other.name }}
-          </NuxtLink>
-        </div>
+        <NuxtLink :to="`/users/${other.id}`" class="font-semibold text-gray-900 hover:underline text-sm">
+          {{ other.name }}
+        </NuxtLink>
       </div>
     </div>
 
-    <div
-      class="flex-1 overflow-y-auto bg-white border border-gray-100 rounded-xl p-4 space-y-3"
-    >
-      <div
-        v-if="!(msgs as any[])?.length"
-        class="flex items-center justify-center h-full"
-      >
+    <div class="flex-1 overflow-y-auto bg-white border border-gray-100 rounded-xl p-4 space-y-1">
+      <div v-if="loading" class="flex items-center justify-center h-full">
+        <p class="text-sm text-gray-400">Se încarcă...</p>
+      </div>
+
+      <div v-else-if="!msgs.length" class="flex items-center justify-center h-full">
         <p class="text-sm text-gray-400">Trimite primul mesaj!</p>
       </div>
 
-      <div
-        v-for="msg in msgs as any[]"
-        :key="msg.id"
-        class="flex"
-        :class="msg.senderId === me ? 'justify-end' : 'justify-start'"
-      >
+      <template v-else v-for="(msg, index) in msgs" :key="msg.id">
         <div
-          class="max-w-[70%] px-4 py-2 rounded-2xl text-sm"
-          :class="
-            msg.senderId === me
-              ? 'bg-indigo-600 text-white rounded-br-md'
-              : 'bg-gray-100 text-gray-900 rounded-bl-md'
-          "
+          class="flex"
+          :class="msg.senderId === me ? 'justify-end' : 'justify-start'"
         >
-          <p>{{ msg.content }}</p>
-          <p class="text-xs mt-0.5 opacity-60 text-right">
-            {{ formatTime(msg.createdAt) }}
+          <div
+            class="max-w-[70%] px-4 py-2 rounded-2xl text-sm"
+            :class="msg.senderId === me
+              ? 'bg-indigo-600 text-white rounded-br-md'
+              : 'bg-gray-100 text-gray-900 rounded-bl-md'"
+          >
+            <p>{{ msg.content }}</p>
+            <p class="text-xs mt-0.5 opacity-60 text-right">{{ formatTime(msg.createdAt) }}</p>
+          </div>
+        </div>
+
+        <div
+          v-if="msg.senderId === me && index === lastReadSentIndex"
+          class="flex justify-end"
+        >
+          <p class="text-xs text-gray-400 mr-1 -mt-0.5">
+            Citit la {{ formatTime(msg.readAt) }}
           </p>
         </div>
-      </div>
+      </template>
+
       <div ref="messagesEnd" />
     </div>
 

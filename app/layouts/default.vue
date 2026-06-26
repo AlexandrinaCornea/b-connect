@@ -4,18 +4,65 @@ const route = useRoute();
 
 const isAdmin = computed(() => (data.value?.user as any)?.role === "admin");
 
+const isActive = (path: string) => route.path.startsWith(path);
+
+const unreadNotifs = ref(0);
+const unreadMessages = ref(0);
+
+async function fetchCounts() {
+  if (!data.value) return;
+  try {
+    const [notifs, msgs] = await Promise.all([
+      $fetch<any[]>("/api/notifications"),
+      $fetch<{ count: number }>("/api/messages/unread"),
+    ]);
+    unreadNotifs.value = notifs.filter((n) => !n.read).length;
+    unreadMessages.value = msgs.count;
+  } catch {}
+}
+
+let timer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  if (data.value) {
+    fetchCounts();
+    timer = setInterval(fetchCounts, 5_000);
+  } else {
+    const stop = watch(data, (val) => {
+      if (val) {
+        fetchCounts();
+        timer = setInterval(fetchCounts, 5_000);
+        stop();
+      }
+    });
+  }
+});
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
+});
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path.startsWith("/messages")) unreadMessages.value = 0;
+  },
+);
+
 const navLinks = computed(() => {
   const links = [
-    { to: "/books", label: "Cărți", icon: "heroicons:book-open" },
+    { to: "/books", label: "Cărți", icon: "heroicons:book-open", badge: 0 },
     {
       to: "/loans",
       label: "Împrumuturi",
       icon: "heroicons:arrow-path-rounded-square",
+      badge: 0,
     },
     {
       to: "/messages",
       label: "Mesaje",
       icon: "heroicons:chat-bubble-left-right",
+      badge: unreadMessages.value,
     },
   ];
   if (isAdmin.value) {
@@ -23,38 +70,28 @@ const navLinks = computed(() => {
       to: "/admin",
       label: "Admin",
       icon: "heroicons:shield-check",
+      badge: 0,
     });
   }
   return links;
 });
 
-const mobileLinks = computed(() => {
-  const links = [
-    { to: "/books", label: "Cărți", icon: "heroicons:book-open" },
-    {
-      to: "/loans",
-      label: "Împrumuturi",
-      icon: "heroicons:arrow-path-rounded-square",
-    },
-    {
-      to: "/messages",
-      label: "Mesaje",
-      icon: "heroicons:chat-bubble-left-right",
-    },
-    { to: "/profile", label: "Profil", icon: "heroicons:user-circle" },
-  ];
-  return links;
-});
-
-const isActive = (path: string) => route.path.startsWith(path);
-
-const { data: notifications } = data.value
-  ? await useFetch("/api/notifications")
-  : { data: ref(null) };
-
-const unreadCount = computed(
-  () => (notifications.value as any[])?.filter((n: any) => !n.read).length ?? 0,
-);
+const mobileLinks = computed(() => [
+  { to: "/books", label: "Cărți", icon: "heroicons:book-open", badge: 0 },
+  {
+    to: "/loans",
+    label: "Împrumuturi",
+    icon: "heroicons:arrow-path-rounded-square",
+    badge: 0,
+  },
+  {
+    to: "/messages",
+    label: "Mesaje",
+    icon: "heroicons:chat-bubble-left-right",
+    badge: unreadMessages.value,
+  },
+  { to: "/profile", label: "Profil", icon: "heroicons:user-circle", badge: 0 },
+]);
 
 async function handleSignOut() {
   await signOut({ callbackUrl: "/auth/login" });
@@ -81,7 +118,7 @@ async function handleSignOut() {
               v-for="link in navLinks"
               :key="link.to"
               :to="link.to"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
+              class="relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
               :class="
                 isActive(link.to)
                   ? 'bg-indigo-50 text-indigo-600'
@@ -90,6 +127,10 @@ async function handleSignOut() {
             >
               <Icon :name="link.icon" class="w-4 h-4" />
               {{ link.label }}
+              <span
+                v-if="link.badge > 0"
+                class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"
+              />
             </NuxtLink>
           </template>
           <template v-else>
@@ -117,7 +158,7 @@ async function handleSignOut() {
             >
               <Icon name="heroicons:bell" class="w-5 h-5" />
               <span
-                v-if="unreadCount > 0"
+                v-if="unreadNotifs > 0"
                 class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"
               />
             </NuxtLink>
@@ -171,7 +212,13 @@ async function handleSignOut() {
               : 'text-gray-500 hover:text-gray-900'
           "
         >
-          <Icon :name="link.icon" class="w-5 h-5" />
+          <div class="relative">
+            <Icon :name="link.icon" class="w-5 h-5" />
+            <span
+              v-if="link.badge > 0"
+              class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"
+            />
+          </div>
           {{ link.label }}
         </NuxtLink>
       </div>
