@@ -74,6 +74,8 @@ export const books = pgTable("books", {
   genre: text("genre"),
   description: text("description"),
   imageUrl: text("image_url"),
+  pageCount: integer("page_count"),
+  publishedYear: integer("published_year"),
   status: bookStatusEnum("status").default("available").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

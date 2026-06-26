@@ -72,6 +72,12 @@ const ratingAvg = computed(() => {
 const { data: userBooks } = await useFetch(`/api/books`, {
   query: computed(() => ({ ownerId: userId })),
 });
+
+const { data: userReviews } = await useFetch(`/api/reviews/${userId}`);
+
+function starsFill(rating: number, star: number) {
+  return star <= rating ? "text-amber-400" : "text-gray-200";
+}
 </script>
 
 <template>
@@ -234,6 +240,53 @@ const { data: userBooks } = await useFetch(`/api/books`, {
             </span>
           </div>
         </NuxtLink>
+      </div>
+    </div>
+
+    <div v-if="(userReviews as any[])?.length">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Recenzii</h2>
+      <div class="space-y-3">
+        <div
+          v-for="rev in userReviews as any[]"
+          :key="rev.id"
+          class="bg-white border border-gray-100 rounded-xl p-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs shrink-0"
+              >
+                {{ rev.reviewer?.name?.charAt(0).toUpperCase() }}
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-900">
+                  {{ rev.reviewer?.name }}
+                </p>
+                <div class="flex gap-0.5 mt-0.5">
+                  <span
+                    v-for="s in 5"
+                    :key="s"
+                    class="text-sm"
+                    :class="starsFill(rev.rating, s)"
+                    >★</span
+                  >
+                </div>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 shrink-0">
+              {{
+                new Date(rev.createdAt).toLocaleDateString("ro-RO", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              }}
+            </p>
+          </div>
+          <p v-if="rev.comment" class="text-sm text-gray-600 mt-2 ml-10">
+            {{ rev.comment }}
+          </p>
+        </div>
       </div>
     </div>
   </div>

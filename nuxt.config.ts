@@ -23,7 +23,9 @@ export default defineNuxtConfig({
     cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
     cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
-    public: {},
+    public: {
+      googleBooksApiKey: process.env.GOOGLE_BOOKS_API_KEY,
+    },
   },
 
   vite: {
