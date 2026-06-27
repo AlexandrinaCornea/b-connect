@@ -1,10 +1,17 @@
-import { eq } from "drizzle-orm";
+import { eq, or, and } from "drizzle-orm";
 import { z } from "zod";
-import { db, loanRequests, books, notifications } from "../../db/index";
+import {
+  db,
+  loanRequests,
+  books,
+  notifications,
+  conversations,
+  messages,
+} from "../../db/index";
 import { getServerSession } from "#auth";
 
 const updateLoanSchema = z.object({
-  status: z.enum(["active", "rejected", "cancelled"]),
+  status: z.enum(["accepted", "active", "rejected", "cancelled"]),
 });
 
 export default defineEventHandler(async (event) => {
@@ -36,27 +43,13 @@ export default defineEventHandler(async (event) => {
   const userId = (session.user as any).id;
 
   if (
-    (status === "active" || status === "rejected") &&
+    (status === "accepted" || status === "active" || status === "rejected") &&
     loan.ownerId !== userId
   ) {
     throw createError({ statusCode: 403, message: "Acces interzis" });
   }
-
   if (status === "cancelled" && loan.borrowerId !== userId) {
     throw createError({ statusCode: 403, message: "Acces interzis" });
-  }
-
-  const [updated] = await db
-    .update(loanRequests)
-    .set({ status, respondedAt: new Date() })
-    .where(eq(loanRequests.id, id))
-    .returning();
-
-  if (status === "active") {
-    await db
-      .update(books)
-      .set({ status: "borrowed" })
-      .where(eq(books.id, loan.bookId));
   }
 
   const [book] = await db
@@ -64,17 +57,77 @@ export default defineEventHandler(async (event) => {
     .from(books)
     .where(eq(books.id, loan.bookId))
     .limit(1);
-  const notifType = status === "active" ? "loan_accepted" : "loan_rejected";
-  const notifMsg =
-    status === "active"
-      ? `Cererea ta pentru "${book?.title}" a fost acceptată`
-      : `Cererea ta pentru "${book?.title}" a fost respinsă`;
 
-  if (status !== "cancelled") {
+  const [updated] = await db
+    .update(loanRequests)
+    .set({ status, respondedAt: new Date() })
+    .where(eq(loanRequests.id, id))
+    .returning();
+
+  if (status === "accepted") {
+    const [existing] = await db
+      .select()
+      .from(conversations)
+      .where(
+        or(
+          and(
+            eq(conversations.user1Id, loan.ownerId),
+            eq(conversations.user2Id, loan.borrowerId),
+          ),
+          and(
+            eq(conversations.user1Id, loan.borrowerId),
+            eq(conversations.user2Id, loan.ownerId),
+          ),
+        ),
+      )
+      .limit(1);
+
+    let conv = existing;
+    if (!conv) {
+      const [newConv] = await db
+        .insert(conversations)
+        .values({ user1Id: loan.ownerId, user2Id: loan.borrowerId })
+        .returning();
+      conv = newConv;
+    }
+
+    await db.insert(messages).values({
+      conversationId: conv.id,
+      senderId: loan.ownerId,
+      content: `Salut! Am acceptat cererea ta pentru „${book?.title}". Hai să aranjăm o întâlnire pentru predarea cărții!`,
+    });
+
+    await db
+      .update(conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversations.id, conv.id));
+
     await db.insert(notifications).values({
       userId: loan.borrowerId,
-      type: notifType,
-      message: notifMsg,
+      type: "loan_accepted",
+      message: `Cererea ta pentru „${book?.title}" a fost acceptată. Verifică mesajele pentru detalii!`,
+      relatedId: loan.id,
+    });
+  }
+
+  if (status === "active") {
+    await db
+      .update(books)
+      .set({ status: "borrowed" })
+      .where(eq(books.id, loan.bookId));
+    await db.insert(notifications).values({
+      userId: loan.borrowerId,
+      type: "loan_accepted",
+      message: `Predarea cărții „${book?.title}" a fost confirmată. Împrumutul este activ!`,
+      relatedId: loan.id,
+    });
+  }
+
+  if (status === "rejected") {
+    await db.insert(notifications).values({
+      userId: loan.borrowerId,
+      type: "loan_rejected",
+      message: `Cererea ta pentru „${book?.title}" a fost respinsă.`,
       relatedId: loan.id,
     });
   }

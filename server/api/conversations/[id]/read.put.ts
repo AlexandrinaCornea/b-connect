@@ -1,5 +1,5 @@
-import { eq, asc, and, ne } from "drizzle-orm";
-import { db, conversations, messages, users } from "../../../db/index";
+import { eq, and, ne } from "drizzle-orm";
+import { db, conversations, messages } from "../../../db/index";
 import { getServerSession } from "#auth";
 
 export default defineEventHandler(async (event) => {
@@ -23,24 +23,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: "Acces interzis" });
   }
 
-  const result = await db
-    .select({
-      id: messages.id,
-      content: messages.content,
-      senderId: messages.senderId,
-      read: messages.read,
-      readAt: messages.readAt,
-      createdAt: messages.createdAt,
-      sender: {
-        id: users.id,
-        name: users.name,
-        avatarUrl: users.avatarUrl,
-      },
-    })
-    .from(messages)
-    .innerJoin(users, eq(messages.senderId, users.id))
-    .where(eq(messages.conversationId, convId))
-    .orderBy(asc(messages.createdAt));
+  await db
+    .update(messages)
+    .set({ read: true, readAt: new Date() })
+    .where(
+      and(
+        eq(messages.conversationId, convId),
+        ne(messages.senderId, userId),
+        eq(messages.read, false),
+      ),
+    );
 
-  return result;
+  return { ok: true };
 });

@@ -1,5 +1,11 @@
-import { eq } from "drizzle-orm";
-import { db, loanRequests, books, notifications } from "../../../db/index";
+import { eq, and, ne } from "drizzle-orm";
+import {
+  db,
+  loanRequests,
+  books,
+  notifications,
+  favorites,
+} from "../../../db/index";
 import { getServerSession } from "#auth";
 
 export default defineEventHandler(async (event) => {
@@ -50,6 +56,27 @@ export default defineEventHandler(async (event) => {
     message: `Cartea "${book?.title}" a fost marcată ca returnată`,
     relatedId: loan.id,
   });
+
+  const favUsers = await db
+    .select({ userId: favorites.userId })
+    .from(favorites)
+    .where(
+      and(
+        eq(favorites.bookId, loan.bookId),
+        ne(favorites.userId, loan.ownerId),
+      ),
+    );
+
+  if (favUsers.length > 0) {
+    await db.insert(notifications).values(
+      favUsers.map((f) => ({
+        userId: f.userId,
+        type: "book_available" as const,
+        message: `Cartea "${book?.title}" este din nou disponibilă!`,
+        relatedId: loan.bookId,
+      })),
+    );
+  }
 
   return updated;
 });

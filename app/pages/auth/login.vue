@@ -54,7 +54,7 @@ const onSubmit = handleSubmit(async (values) => {
       Nu ai cont?
       <NuxtLink
         to="/auth/register"
-        class="text-indigo-600 hover:underline font-medium"
+        class="text-sage-600 hover:underline font-medium"
       >
         Înregistrează-te
       </NuxtLink>
@@ -69,11 +69,11 @@ const onSubmit = handleSubmit(async (values) => {
           v-model="email"
           type="email"
           placeholder="tu@exemplu.com"
-          class="w-full px-3 py-2 border rounded-lg text-sm outline-none transition"
+          class="w-full px-3 py-2 border rounded-xl text-sm outline-none transition"
           :class="
             emailError
               ? 'border-red-400 focus:ring-2 focus:ring-red-200'
-              : 'border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400'
+              : 'border-gray-300 focus:ring-2 focus:ring-sage-200 focus:border-sage-400'
           "
         />
         <p v-if="emailError" class="mt-1 text-xs text-red-500">
@@ -89,11 +89,11 @@ const onSubmit = handleSubmit(async (values) => {
           v-model="password"
           type="password"
           placeholder="••••••••"
-          class="w-full px-3 py-2 border rounded-lg text-sm outline-none transition"
+          class="w-full px-3 py-2 border rounded-xl text-sm outline-none transition"
           :class="
             passwordError
               ? 'border-red-400 focus:ring-2 focus:ring-red-200'
-              : 'border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400'
+              : 'border-gray-300 focus:ring-2 focus:ring-sage-200 focus:border-sage-400'
           "
         />
         <p v-if="passwordError" class="mt-1 text-xs text-red-500">
@@ -103,7 +103,7 @@ const onSubmit = handleSubmit(async (values) => {
 
       <div
         v-if="error"
-        class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600"
+        class="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600"
       >
         {{ error }}
       </div>
@@ -111,7 +111,7 @@ const onSubmit = handleSubmit(async (values) => {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-medium rounded-lg text-sm transition"
+        class="w-full py-2.5 bg-sage-500 hover:bg-sage-600 disabled:opacity-60 text-white font-medium rounded-xl text-sm transition"
       >
         <span v-if="loading">Se încarcă...</span>
         <span v-else>Intră în cont</span>

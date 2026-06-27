@@ -44,6 +44,31 @@ const typeIcon: Record<string, string> = {
   friend_accepted: "heroicons:user-group",
 };
 
+const router = useRouter();
+
+async function handleClick(notif: any) {
+  if (!notif.read) await markRead(notif.id);
+
+  const id = notif.relatedId;
+  switch (notif.type) {
+    case 'loan_request':
+    case 'loan_accepted':
+    case 'loan_rejected':
+    case 'loan_returned':
+    case 'due_date_reminder':
+      return router.push('/loans');
+    case 'new_review':
+    case 'book_available':
+      if (id) return router.push(`/books/${id}`);
+      break;
+    case 'friend_request':
+      return router.push('/profile');
+    case 'friend_accepted':
+      if (id) return router.push(`/users/${id}`);
+      break;
+  }
+}
+
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("ro-RO", {
     day: "numeric",
@@ -55,7 +80,7 @@ function formatDate(date: string) {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto">
+  <div>
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Notificări</h1>
@@ -67,7 +92,7 @@ function formatDate(date: string) {
         v-if="unreadCount > 0"
         @click="markAllRead"
         :disabled="markingAll"
-        class="text-sm text-indigo-600 hover:underline disabled:opacity-50"
+        class="text-sm text-sage-600 hover:underline disabled:opacity-50"
       >
         Marchează toate citite
       </button>
@@ -75,13 +100,11 @@ function formatDate(date: string) {
 
     <div
       v-if="!notifications.length"
-      class="text-center py-20 bg-white border border-gray-100 rounded-xl"
+      class="text-center py-20 bg-white border border-cream-200 rounded-xl space-y-2"
     >
-      <Icon
-        name="heroicons:bell"
-        class="w-10 h-10 text-gray-200 mx-auto mb-2"
-      />
-      <p class="text-sm text-gray-500">Nu ai notificări.</p>
+      <Icon name="heroicons:bell" class="w-12 h-12 text-cream-300 mx-auto" />
+      <p class="font-semibold text-gray-700">Nicio notificare</p>
+      <p class="text-sm text-gray-400">Vei fi notificat când se întâmplă ceva.</p>
     </div>
 
     <div v-else class="space-y-2">
@@ -92,18 +115,18 @@ function formatDate(date: string) {
         :class="
           notif.read
             ? 'bg-white border-gray-100'
-            : 'bg-indigo-50 border-indigo-100'
+            : 'bg-sage-50 border-sage-100'
         "
-        @click="!notif.read && markRead(notif.id)"
+        @click="handleClick(notif)"
       >
         <div
           class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-          :class="notif.read ? 'bg-gray-100' : 'bg-indigo-100'"
+          :class="notif.read ? 'bg-gray-100' : 'bg-sage-100'"
         >
           <Icon
             :name="typeIcon[notif.type] ?? 'heroicons:bell'"
             class="w-4 h-4"
-            :class="notif.read ? 'text-gray-400' : 'text-indigo-600'"
+            :class="notif.read ? 'text-gray-400' : 'text-sage-600'"
           />
         </div>
         <div class="flex-1 min-w-0">
@@ -119,7 +142,7 @@ function formatDate(date: string) {
         </div>
         <div
           v-if="!notif.read"
-          class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"
+          class="w-2 h-2 rounded-full bg-sage-500 mt-1.5 shrink-0"
         />
       </div>
     </div>

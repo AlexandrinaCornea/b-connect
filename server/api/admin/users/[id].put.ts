@@ -12,16 +12,24 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, message: 'ID lipsă' })
 
-  const { role } = await readBody<{ role: 'user' | 'admin' }>(event)
-  if (!['user', 'admin'].includes(role)) {
-    throw createError({ statusCode: 400, message: 'Rol invalid' })
+  const body = await readBody<{ role?: 'user' | 'admin'; banned?: boolean }>(event)
+
+  const update: Record<string, any> = { updatedAt: new Date() }
+  if (body.role !== undefined) {
+    if (!['user', 'admin'].includes(body.role)) {
+      throw createError({ statusCode: 400, message: 'Rol invalid' })
+    }
+    update.role = body.role
+  }
+  if (body.banned !== undefined) {
+    update.banned = body.banned
   }
 
   const [updated] = await db
     .update(users)
-    .set({ role, updatedAt: new Date() })
+    .set(update)
     .where(eq(users.id, id))
-    .returning({ id: users.id, name: users.name, email: users.email, role: users.role })
+    .returning({ id: users.id, name: users.name, email: users.email, role: users.role, banned: users.banned })
 
   if (!updated) throw createError({ statusCode: 404, message: 'Utilizatorul nu există' })
 

@@ -17,6 +17,7 @@ export const bookStatusEnum = pgEnum("book_status", ["available", "borrowed"]);
 
 export const loanStatusEnum = pgEnum("loan_status", [
   "pending",
+  "accepted",
   "active",
   "returned",
   "rejected",
@@ -54,6 +55,7 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   role: userRoleEnum("role").default("user").notNull(),
+  banned: boolean("banned").default(false).notNull(),
   ratingSum: integer("rating_sum").default(0).notNull(),
   ratingCount: integer("rating_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

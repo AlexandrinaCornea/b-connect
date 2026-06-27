@@ -1,4 +1,4 @@
-import { eq, ilike, or, asc, desc, and } from "drizzle-orm";
+import { eq, ilike, or, asc, desc, and, sql } from "drizzle-orm";
 import { db, books, users } from "../../db/index";
 
 export default defineEventHandler(async (event) => {
@@ -35,7 +35,11 @@ export default defineEventHandler(async (event) => {
     filters.push(eq(books.ownerId, ownerId));
   }
 
-  const sortColumn = sortBy === "title" ? books.title : books.createdAt;
+  const ratingExpr = sql<number>`CASE WHEN ${users.ratingCount} = 0 THEN 0 ELSE ${users.ratingSum}::float / ${users.ratingCount} END`;
+  const sortColumn =
+    sortBy === "title" ? books.title :
+    sortBy === "rating" ? ratingExpr :
+    books.createdAt;
   const sortDir = order === "asc" ? asc(sortColumn) : desc(sortColumn);
 
   const result = await db

@@ -1,14 +1,9 @@
 import { eq } from 'drizzle-orm'
-import { db, favorites, books, users } from '../../db/index'
-import { getServerSession } from '#auth'
-import { alias } from 'drizzle-orm/pg-core'
+import { db, favorites, books } from '../../../db/index'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session) throw createError({ statusCode: 401, message: 'Neautentificat' })
-  const userId = (session.user as any).id
-
-  const owner = alias(users, 'owner')
+  const targetId = getRouterParam(event, 'id')
+  if (!targetId) throw createError({ statusCode: 400, message: 'ID lipsă' })
 
   const result = await db
     .select({
@@ -24,7 +19,7 @@ export default defineEventHandler(async (event) => {
     })
     .from(favorites)
     .innerJoin(books, eq(favorites.bookId, books.id))
-    .where(eq(favorites.userId, userId))
+    .where(eq(favorites.userId, targetId))
 
   return result
 })

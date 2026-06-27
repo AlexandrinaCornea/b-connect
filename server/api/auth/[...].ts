@@ -31,6 +31,8 @@ export default NuxtAuthHandler({
 
         if (!validPassword) return null;
 
+        if (user.banned) throw new Error("Contul tău a fost suspendat.");
+
         return {
           id: user.id,
           name: user.name,

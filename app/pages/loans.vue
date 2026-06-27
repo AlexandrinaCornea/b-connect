@@ -36,6 +36,8 @@ async function returnLoan(id: string) {
   try {
     await $fetch(`/api/loans/${id}/return`, { method: "PUT" });
     await loadAll();
+    const returnedLoan = history.value.find((l: any) => l.id === id);
+    if (returnedLoan && !returnedLoan.hasReviewed) openReview(returnedLoan);
   } catch (err: any) {
     actionError.value = err?.data?.message || "A apărut o eroare.";
   }
@@ -93,18 +95,36 @@ async function submitReview() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusLabel: Record<string, string> = {
   pending: "În așteptare",
+  accepted: "Acceptat",
   active: "Activ",
-  returned: "Returnat",
+  returned: "Completat",
   rejected: "Respins",
   cancelled: "Anulat",
 };
 const statusClass: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-700",
-  active: "bg-blue-100 text-blue-700",
-  returned: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  pending: "bg-[#FFFBEA] text-yellow-700",
+  accepted: "bg-sage-50 text-sage-700",
+  active: "bg-blue-50 text-blue-700",
+  returned: "bg-[#DCFCE7] text-green-700",
+  rejected: "bg-[#FEE2E2] text-red-600",
   cancelled: "bg-gray-100 text-gray-500",
 };
+
+function daysRemaining(dueDate: string | null): number | null {
+  if (!dueDate) return null;
+  const diff = new Date(dueDate).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function dueDateProgress(
+  startDate: string | null,
+  dueDate: string | null,
+): number {
+  if (!startDate || !dueDate) return 0;
+  const total = new Date(dueDate).getTime() - new Date(startDate).getTime();
+  const elapsed = Date.now() - new Date(startDate).getTime();
+  return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+}
 const tabs = [
   { key: "incoming", label: "Primite", icon: "heroicons:inbox" },
   { key: "outgoing", label: "Trimise", icon: "heroicons:paper-airplane" },
@@ -133,7 +153,7 @@ function formatDate(dt: string | null) {
         class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition"
         :class="
           activeTab === tab.key
-            ? 'bg-white text-gray-900 shadow-sm'
+            ? 'bg-sage-500 text-white shadow-sm'
             : 'text-gray-500 hover:text-gray-700'
         "
       >
@@ -152,19 +172,28 @@ function formatDate(dt: string | null) {
     <div v-if="activeTab === 'incoming'">
       <div
         v-if="!incoming.length"
-        class="text-center py-16 bg-white border border-gray-100 rounded-xl"
+        class="text-center py-16 bg-white border border-gray-100 rounded-xl space-y-3"
       >
-        <Icon
-          name="heroicons:inbox"
-          class="w-10 h-10 text-gray-200 mx-auto mb-2"
-        />
-        <p class="text-sm text-gray-500">Nu ai cereri primite.</p>
+        <Icon name="heroicons:inbox" class="w-12 h-12 text-cream-300 mx-auto" />
+        <p class="text-base font-semibold text-gray-700">
+          Încă nicio cerere...
+        </p>
+        <p class="text-sm text-gray-400 italic max-w-sm mx-auto">
+          Cărțile tale așteaptă în tăcere. Când cineva va vedea ceva demn de a
+          fi citit, cererea va apărea aici.
+        </p>
+        <NuxtLink
+          to="/profile"
+          class="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-sage-500 hover:bg-sage-600 text-white text-sm font-medium rounded-xl transition"
+        >
+          Mergi la cărțile mele
+        </NuxtLink>
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-5">
         <div
           v-for="loan in incoming"
           :key="loan.id"
-          class="bg-white border border-gray-100 rounded-xl p-4"
+          class="bg-white border border-cream-200 rounded-xl p-5"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex gap-3">
@@ -235,28 +264,83 @@ function formatDate(dt: string | null) {
           </div>
           <div
             v-if="loan.status === 'pending'"
-            class="flex gap-2 mt-3 pt-3 border-t border-gray-50"
+            class="flex gap-2 mt-4 pt-4 border-t border-gray-50"
           >
             <button
-              @click="updateLoan(loan.id, 'active')"
-              class="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition"
+              @click="updateLoan(loan.id, 'accepted')"
+              class="flex-1 py-2 bg-sage-500 hover:bg-sage-600 text-white text-xs font-medium rounded-lg transition"
             >
               Acceptă
             </button>
             <button
               @click="updateLoan(loan.id, 'rejected')"
-              class="flex-1 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium rounded-lg transition"
+              class="flex-1 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium rounded-lg transition"
             >
               Respinge
             </button>
           </div>
           <div
-            v-if="loan.status === 'active'"
-            class="mt-3 pt-3 border-t border-gray-50"
+            v-if="loan.status === 'accepted'"
+            class="mt-4 pt-4 border-t border-gray-50 space-y-2"
           >
+            <p class="text-xs text-sage-600 bg-sage-50 rounded-lg px-3 py-2">
+              Conversația a fost creată automat. Aranjați întâlnirea, apoi
+              confirmați predarea.
+            </p>
+            <div class="flex gap-2">
+              <NuxtLink
+                to="/messages"
+                class="flex-1 py-2 text-center border border-sage-300 text-sage-600 hover:bg-sage-50 text-xs font-medium rounded-lg transition"
+              >
+                Mergi la mesaje
+              </NuxtLink>
+              <button
+                @click="updateLoan(loan.id, 'active')"
+                class="flex-1 py-2 bg-sage-500 hover:bg-sage-600 text-white text-xs font-medium rounded-lg transition"
+              >
+                Confirmă predarea
+              </button>
+            </div>
+          </div>
+          <div
+            v-if="loan.status === 'active'"
+            class="mt-4 pt-4 border-t border-gray-50 space-y-3"
+          >
+            <div v-if="loan.dueDate">
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-xs text-gray-500">Timp rămas</span>
+                <span
+                  class="text-xs font-medium"
+                  :class="
+                    (daysRemaining(loan.dueDate) ?? 0) <= 3
+                      ? 'text-red-500'
+                      : 'text-gray-600'
+                  "
+                >
+                  <template v-if="(daysRemaining(loan.dueDate) ?? 0) > 0">
+                    {{ daysRemaining(loan.dueDate) }} zile · până la
+                    {{ formatDate(loan.dueDate) }}
+                  </template>
+                  <template v-else>Termen depășit</template>
+                </span>
+              </div>
+              <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all"
+                  :class="
+                    (daysRemaining(loan.dueDate) ?? 0) <= 3
+                      ? 'bg-red-400'
+                      : 'bg-sage-400'
+                  "
+                  :style="{
+                    width: dueDateProgress(loan.startDate, loan.dueDate) + '%',
+                  }"
+                />
+              </div>
+            </div>
             <button
               @click="returnLoan(loan.id)"
-              class="w-full py-1.5 border border-green-200 text-green-600 hover:bg-green-50 text-xs font-medium rounded-lg transition"
+              class="w-full py-2 border border-green-200 text-green-600 hover:bg-green-50 text-xs font-medium rounded-lg transition"
             >
               Marchează returnată
             </button>
@@ -276,11 +360,11 @@ function formatDate(dt: string | null) {
         />
         <p class="text-sm text-gray-500">Nu ai cereri trimise.</p>
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-5">
         <div
           v-for="loan in outgoing"
           :key="loan.id"
-          class="bg-white border border-gray-100 rounded-xl p-4"
+          class="bg-white border border-cream-200 rounded-xl p-5"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex gap-3">
@@ -342,14 +426,68 @@ function formatDate(dt: string | null) {
           </div>
           <div
             v-if="loan.status === 'pending'"
-            class="mt-3 pt-3 border-t border-gray-50"
+            class="mt-4 pt-4 border-t border-gray-50"
           >
             <button
               @click="updateLoan(loan.id, 'cancelled')"
-              class="w-full py-1.5 border border-gray-200 text-gray-500 hover:bg-gray-50 text-xs font-medium rounded-lg transition"
+              class="w-full py-2 border border-gray-200 text-gray-500 hover:bg-gray-50 text-xs font-medium rounded-lg transition"
             >
               Anulează cererea
             </button>
+          </div>
+          <div
+            v-if="loan.status === 'accepted'"
+            class="mt-4 pt-4 border-t border-gray-50 space-y-2"
+          >
+            <p class="text-xs text-sage-600 bg-sage-50 rounded-lg px-3 py-2">
+              Cererea a fost acceptată! Discutați detaliile întâlnirii în
+              mesaje.
+            </p>
+            <NuxtLink
+              to="/messages"
+              class="flex items-center justify-center gap-2 w-full py-2 bg-sage-500 hover:bg-sage-600 text-white text-xs font-medium rounded-lg transition"
+            >
+              <Icon
+                name="heroicons:chat-bubble-left-right"
+                class="w-3.5 h-3.5"
+              />
+              Mergi la mesaje
+            </NuxtLink>
+          </div>
+          <div
+            v-if="loan.status === 'active' && loan.dueDate"
+            class="mt-4 pt-4 border-t border-gray-50"
+          >
+            <div class="flex justify-between items-center mb-1.5">
+              <span class="text-xs text-gray-500">Timp rămas</span>
+              <span
+                class="text-xs font-medium"
+                :class="
+                  (daysRemaining(loan.dueDate) ?? 0) <= 3
+                    ? 'text-red-500'
+                    : 'text-gray-600'
+                "
+              >
+                <template v-if="(daysRemaining(loan.dueDate) ?? 0) > 0">
+                  {{ daysRemaining(loan.dueDate) }} zile · până la
+                  {{ formatDate(loan.dueDate) }}
+                </template>
+                <template v-else>Termen depășit</template>
+              </span>
+            </div>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="
+                  (daysRemaining(loan.dueDate) ?? 0) <= 3
+                    ? 'bg-red-400'
+                    : 'bg-sage-400'
+                "
+                :style="{
+                  width: dueDateProgress(loan.startDate, loan.dueDate) + '%',
+                }"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -366,11 +504,11 @@ function formatDate(dt: string | null) {
         />
         <p class="text-sm text-gray-500">Niciun împrumut finalizat.</p>
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-5">
         <div
           v-for="loan in history"
           :key="loan.id"
-          class="bg-white border border-gray-100 rounded-xl p-4"
+          class="bg-white border border-cream-200 rounded-xl p-5"
         >
           <div class="flex items-center justify-between gap-4">
             <div class="flex gap-3">
@@ -481,7 +619,7 @@ function formatDate(dt: string | null) {
           v-model="reviewComment"
           rows="3"
           placeholder="Comentariu opțional..."
-          class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none mb-3"
+          class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 resize-none mb-3"
         />
 
         <p v-if="reviewError" class="text-xs text-red-500 mb-3">
@@ -498,7 +636,7 @@ function formatDate(dt: string | null) {
           <button
             @click="submitReview"
             :disabled="reviewSending || !reviewRating"
-            class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium rounded-xl transition"
+            class="flex-1 py-2 bg-sage-500 hover:bg-sage-600 disabled:opacity-60 text-white text-sm font-medium rounded-xl transition"
           >
             <span v-if="reviewSending">Se trimite...</span>
             <span v-else>Trimite</span>

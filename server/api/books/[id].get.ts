@@ -8,11 +8,14 @@ export default defineEventHandler(async (event) => {
   const [book] = await db
     .select({
       id: books.id,
+      ownerId: books.ownerId,
       title: books.title,
       author: books.author,
       genre: books.genre,
       description: books.description,
       imageUrl: books.imageUrl,
+      pageCount: books.pageCount,
+      publishedYear: books.publishedYear,
       status: books.status,
       createdAt: books.createdAt,
       owner: {
