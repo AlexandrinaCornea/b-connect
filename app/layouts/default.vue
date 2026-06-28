@@ -88,7 +88,6 @@ const mobileLinks = computed(() => [
     icon: "heroicons:chat-bubble-left-right",
     badge: unreadMessages.value,
   },
-  { to: "/profile", label: "Profil", icon: "heroicons:user-circle", badge: 0 },
 ]);
 
 async function handleSignOut() {
